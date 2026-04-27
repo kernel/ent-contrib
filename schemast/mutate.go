@@ -16,14 +16,13 @@ package schemast
 
 import (
 	"go/ast"
-	"go/token"
-	"strconv"
 
 	"entgo.io/contrib/entproto"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/field"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 // Mutator changes a Context.
@@ -134,11 +133,6 @@ func (c *Context) appendReturnItem(k kind, typeName string, item ast.Expr) error
 
 func (c *Context) appendImport(typeName, pkgPath string) {
 	if f, ok := c.newTypes[typeName]; ok {
-		for _, spec := range f.Imports {
-			if spec.Path.Value == strconv.Quote(pkgPath) {
-				return
-			}
-		}
-		f.Imports = append(f.Imports, &ast.ImportSpec{Path: &ast.BasicLit{Value: pkgPath, Kind: token.STRING}})
+		astutil.AddImport(c.SchemaPackage.Fset, f, pkgPath)
 	}
 }
