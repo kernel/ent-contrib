@@ -17,8 +17,11 @@ package schemast
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 
+	"entgo.io/contrib/entproto"
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/field"
 )
@@ -62,6 +65,7 @@ func (u *UpsertSchema) Mutate(ctx *Context) error {
 		if err := ctx.AppendField(u.Name, fld.Descriptor()); err != nil {
 			return err
 		}
+		ctx.appendImport(u.Name, "entgo.io/ent/schema/field")
 		if fld.Descriptor().Info.Type == field.TypeUUID {
 			ctx.appendImport(u.Name, "github.com/google/uuid")
 		}
@@ -76,16 +80,27 @@ func (u *UpsertSchema) Mutate(ctx *Context) error {
 		if err := ctx.AppendEdge(u.Name, edg.Descriptor()); err != nil {
 			return err
 		}
+		ctx.appendImport(u.Name, "entgo.io/ent/schema/edge")
 	}
 	for _, annot := range u.Annotations {
 		if err := ctx.AppendTypeAnnotation(u.Name, annot); err != nil {
 			return err
+		}
+		switch annot.Name() {
+		case "EntSQL":
+			ctx.appendImport(u.Name, "entgo.io/ent/dialect/entsql")
+		case entproto.MessageAnnotation, entproto.ServiceAnnotation, entproto.FieldAnnotation, entproto.EnumAnnotation:
+			ctx.appendImport(u.Name, "entgo.io/contrib/entproto")
+		}
+		if _, ok := annot.(entsql.Annotation); ok {
+			ctx.appendImport(u.Name, "entgo.io/ent/dialect/entsql")
 		}
 	}
 	for _, idx := range u.Indexes {
 		if err := ctx.AppendIndex(u.Name, idx); err != nil {
 			return err
 		}
+		ctx.appendImport(u.Name, "entgo.io/ent/schema/index")
 	}
 	return nil
 }
@@ -119,6 +134,11 @@ func (c *Context) appendReturnItem(k kind, typeName string, item ast.Expr) error
 
 func (c *Context) appendImport(typeName, pkgPath string) {
 	if f, ok := c.newTypes[typeName]; ok {
+		for _, spec := range f.Imports {
+			if spec.Path.Value == strconv.Quote(pkgPath) {
+				return
+			}
+		}
 		f.Imports = append(f.Imports, &ast.ImportSpec{Path: &ast.BasicLit{Value: pkgPath, Kind: token.STRING}})
 	}
 }
