@@ -41,7 +41,16 @@ func (c *Context) Print(path string, opts ...PrintOption) error {
 			return err
 		}
 		fn := filepath.Join(path, base)
-		process, err := imports.Process(base, buf.Bytes(), nil)
+		var importsOptions *imports.Options
+		if options.formatOnly {
+			importsOptions = &imports.Options{
+				Comments:   true,
+				TabIndent:  true,
+				TabWidth:   8,
+				FormatOnly: true,
+			}
+		}
+		process, err := imports.Process(base, buf.Bytes(), importsOptions)
 		if err != nil {
 			return err
 		}
@@ -70,7 +79,15 @@ func Header(c string) PrintOption {
 	}
 }
 
+// FormatOnly disables import resolution and only formats existing imports.
+func FormatOnly() PrintOption {
+	return func(opt *printOpts) {
+		opt.formatOnly = true
+	}
+}
+
 type printOpts struct {
 	headerComment string
 	commentRegexp *regexp.Regexp
+	formatOnly    bool
 }
